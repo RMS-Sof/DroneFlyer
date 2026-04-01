@@ -1,728 +1,811 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Drone Flight Game</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: Arial, sans-serif;
-        }
-        #gameCanvas {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-        }
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            font-size: 18px;
-            z-index: 100;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-        #timer {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            color: white;
-            font-size: 24px;
-            z-index: 100;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-        #healthBar {
-            width: 200px;
-            height: 20px;
-            background-color: #333;
-            margin-top: 10px;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        #health {
-            height: 100%;
-            background-color: #2ecc71;
-            width: 100%;
-            transition: width 0.3s;
-        }
-        #gameOver {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 36px;
-            text-align: center;
-            z-index: 200;
-            background-color: rgba(0,0,0,0.7);
-            padding: 40px;
-            border-radius: 20px;
-            display: none;
-        }
-        #startScreen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.8);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 300;
-        }
-        button {
-            background-color: #2ecc71;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            font-size: 20px;
-            cursor: pointer;
-            border-radius: 10px;
-            margin-top: 20px;
-            transition: all 0.3s;
-        }
-        button:hover {
-            background-color: #27ae60;
-            transform: scale(1.05);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRONE RUSH</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --neon-cyan: #00f5ff;
+    --neon-green: #39ff14;
+    --neon-red: #ff073a;
+    --neon-gold: #ffd700;
+    --neon-purple: #bf5fff;
+    --bg-dark: #020814;
+    --bg-panel: rgba(0, 245, 255, 0.05);
+    --grid-color: rgba(0, 245, 255, 0.07);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-dark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Orbitron', monospace;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridMove 4s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes gridMove {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 40px; }
+  }
+
+  #game-wrapper {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* HUD */
+  #hud {
+    width: 820px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background: var(--bg-panel);
+    border: 1px solid rgba(0, 245, 255, 0.2);
+    backdrop-filter: blur(10px);
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+  }
+
+  #title-text {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 20px var(--neon-cyan), 0 0 40px rgba(0,245,255,0.4);
+    letter-spacing: 6px;
+  }
+
+  #score-display {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 24px;
+    color: var(--neon-gold);
+    text-shadow: 0 0 15px var(--neon-gold);
+    letter-spacing: 3px;
+  }
+
+  #lives-display {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .heart {
+    font-size: 22px;
+    transition: all 0.3s;
+    filter: drop-shadow(0 0 6px #ff073a);
+  }
+
+  .heart.lost {
+    opacity: 0.15;
+    filter: none;
+    transform: scale(0.8);
+  }
+
+  /* Canvas */
+  #gameCanvas {
+    border: 1px solid rgba(0, 245, 255, 0.25);
+    box-shadow:
+      0 0 30px rgba(0, 245, 255, 0.15),
+      0 0 80px rgba(0, 245, 255, 0.05),
+      inset 0 0 60px rgba(0, 0, 0, 0.8);
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  /* Level badge */
+  #level-badge {
+    position: absolute;
+    top: 60px;
+    right: 0;
+    background: rgba(191,95,255,0.15);
+    border: 1px solid var(--neon-purple);
+    padding: 4px 14px;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--neon-purple);
+    text-shadow: 0 0 10px var(--neon-purple);
+    clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%);
+  }
+
+  /* Overlay screens */
+  #overlay {
+    position: absolute;
+    top: 52px;
+    left: 0;
+    width: 820px;
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(2, 8, 20, 0.92);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+    gap: 24px;
+  }
+
+  #overlay.hidden { display: none; }
+
+  .overlay-title {
+    font-size: 52px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    text-align: center;
+    line-height: 1.1;
+  }
+
+  .overlay-title.start { color: var(--neon-cyan); text-shadow: 0 0 30px var(--neon-cyan), 0 0 60px rgba(0,245,255,0.3); }
+  .overlay-title.gameover { color: var(--neon-red); text-shadow: 0 0 30px var(--neon-red), 0 0 60px rgba(255,7,58,0.3); }
+
+  .overlay-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: rgba(0, 245, 255, 0.6);
+    letter-spacing: 3px;
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  .overlay-score {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 28px;
+    color: var(--neon-gold);
+    text-shadow: 0 0 20px var(--neon-gold);
+    letter-spacing: 4px;
+  }
+
+  .btn {
+    background: transparent;
+    border: 2px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 5px;
+    padding: 14px 40px;
+    cursor: pointer;
+    clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+    text-shadow: 0 0 10px var(--neon-cyan);
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.2);
+    transition: all 0.2s;
+  }
+
+  .btn:hover {
+    background: rgba(0, 245, 255, 0.1);
+    box-shadow: 0 0 40px rgba(0, 245, 255, 0.4);
+    transform: scale(1.05);
+  }
+
+  /* Controls hint */
+  #controls-hint {
+    width: 820px;
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: rgba(0, 245, 255, 0.35);
+    letter-spacing: 2px;
+    padding: 6px 0;
+  }
+
+  .key-hint span { color: rgba(0,245,255,0.7); }
+
+  /* Floating score popups - handled via canvas */
+</style>
 </head>
 <body>
-    <div id="gameCanvas"></div>
-    
-    <div id="ui">
-        <div>Attempts Left: <span id="attempts">3</span></div>
-        <div>Health: <div id="healthBar"><div id="health"></div></div></div>
-        <div id="speedometer">Speed: 0</div>
+<div id="game-wrapper">
+  <div id="hud">
+    <div id="title-text">DRONE RUSH</div>
+    <div id="score-display">SCORE: <span id="score">000000</span></div>
+    <div id="lives-display">
+      <div class="heart" id="h1">❤️</div>
+      <div class="heart" id="h2">❤️</div>
+      <div class="heart" id="h3">❤️</div>
+      <div class="heart" id="h4">❤️</div>
+      <div class="heart" id="h5">❤️</div>
     </div>
-    
-    <div id="timer">00:00</div>
-    
-    <div id="gameOver">
-        <h1>Game Over</h1>
-        <p id="gameOverMessage"></p>
-        <button id="restartButton">Try Again</button>
-    </div>
-    
-    <div id="startScreen">
-        <h1>Drone Flight Game - By Prof. Rahul M. Samant</h1>
-        <p>Navigate your drone through obstacles without crashing!</p>
-        <h2>Controls:</h2>
-        <p>W, A, S, D - Move the drone</p>
-        <p>Space - Increase altitude</p>
-        <p>Shift - Decrease altitude</p>
-        <p>You have 3 attempts to complete the course!</p>
-        <button id="startButton">Start Game</button>
-    </div>
+  </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-        // Game variables
-        let scene, camera, renderer, drone, obstacles = [];
-        let clock = new THREE.Clock();
-        let gameStarted = false;
-        let gameOver = false;
-        let attempts = 3;
-        let health = 100;
-        let startTime;
-        let elapsedTime = 0;
-        let speed = 0;
-        let targetSpeed = 0;
-        let maxSpeed = 0.5;
-        let acceleration = 0.01;
-        let deceleration = 0.02;
-        
-        // Keyboard controls
-        const keys = {
-            w: false,
-            a: false,
-            s: false,
-            d: false,
-            space: false,
-            shift: false
-        };
-        
-        // Initialize game
-        function init() {
-            // Create scene
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB); // Sky blue
-            
-            // Create camera
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 2, -5);
-            
-            // Create renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            document.getElementById('gameCanvas').appendChild(renderer.domElement);
-            
-            // Add lighting
-            addLighting();
-            
-            // Create drone
-            createDrone();
-            
-            // Create terrain
-            createTerrain();
-            
-            // Create obstacles
-            createObstacles();
-            
-            // Event listeners
-            window.addEventListener('resize', onWindowResize);
-            window.addEventListener('keydown', onKeyDown);
-            window.addEventListener('keyup', onKeyUp);
-            
-            // UI event listeners
-            document.getElementById('startButton').addEventListener('click', startGame);
-            document.getElementById('restartButton').addEventListener('click', restartGame);
-            
-            // Start animation loop
-            animate();
-        }
-        
-        function addLighting() {
-            // Ambient light
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-            scene.add(ambientLight);
-            
-            // Directional light (sun)
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(10, 20, 10);
-            directionalLight.castShadow = true;
-            directionalLight.shadow.mapSize.width = 2048;
-            directionalLight.shadow.mapSize.height = 2048;
-            scene.add(directionalLight);
-        }
-        
-        function createDrone() {
-            drone = new THREE.Group();
-            
-            // Drone body
-            const bodyGeometry = new THREE.BoxGeometry(1, 0.2, 1);
-            const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
-            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            body.castShadow = true;
-            drone.add(body);
-            
-            // Drone rotors
-            const rotorGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 16);
-            const rotorMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
-            
-            // Rotor positions
-            const rotorPositions = [
-                { x: 0.4, y: 0.1, z: 0.4 },
-                { x: -0.4, y: 0.1, z: 0.4 },
-                { x: 0.4, y: 0.1, z: -0.4 },
-                { x: -0.4, y: 0.1, z: -0.4 }
-            ];
-            
-            rotorPositions.forEach(pos => {
-                const rotor = new THREE.Mesh(rotorGeometry, rotorMaterial);
-                rotor.position.set(pos.x, pos.y, pos.z);
-                rotor.castShadow = true;
-                drone.add(rotor);
-            });
-            
-            // Add colored lights
-            const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00];
-            rotorPositions.forEach((pos, index) => {
-                const light = new THREE.PointLight(colors[index], 0.5, 3);
-                light.position.set(pos.x, pos.y - 0.1, pos.z);
-                drone.add(light);
-            });
-            
-            // Set drone initial position
-            drone.position.set(0, 2, 0);
-            scene.add(drone);
-            
-            // Add drone camera
-            const droneCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            droneCamera.position.set(0, 0.3, 0);
-            droneCamera.lookAt(0, 0, 5);
-            drone.add(droneCamera);
-            
-            // Store the drone camera
-            drone.userData.camera = droneCamera;
-        }
-        
-        function createTerrain() {
-            // Ground
-            const groundGeometry = new THREE.PlaneGeometry(200, 500);
-            const groundMaterial = new THREE.MeshPhongMaterial({
-                color: 0x8BC34A,
-                side: THREE.DoubleSide
-            });
-            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-            ground.rotation.x = -Math.PI / 2;
-            ground.position.y = -1;
-            ground.receiveShadow = true;
-            scene.add(ground);
-            
-            // Hills
-            for (let i = 0; i < 20; i++) {
-                const hillGeometry = new THREE.ConeGeometry(
-                    Math.random() * 5 + 2,
-                    Math.random() * 5 + 3,
-                    8
-                );
-                const hillMaterial = new THREE.MeshPhongMaterial({
-                    color: new THREE.Color(
-                        0.2 + Math.random() * 0.2,
-                        0.4 + Math.random() * 0.4,
-                        0.2 + Math.random() * 0.1
-                    )
-                });
-                const hill = new THREE.Mesh(hillGeometry, hillMaterial);
-                hill.position.set(
-                    Math.random() * 100 - 50,
-                    -1 + hillGeometry.parameters.height / 2,
-                    Math.random() * 200 - 50
-                );
-                hill.castShadow = true;
-                hill.receiveShadow = true;
-                scene.add(hill);
-                
-                // Add collision detection
-                hill.userData.isObstacle = true;
-                hill.userData.damage = 30;
-                obstacles.push(hill);
-            }
-            
-            // Water bodies
-            const waterGeometry = new THREE.PlaneGeometry(30, 30);
-            const waterMaterial = new THREE.MeshPhongMaterial({
-                color: 0x4FC3F7,
-                transparent: true,
-                opacity: 0.7
-            });
-            
-            for (let i = 0; i < 5; i++) {
-                const water = new THREE.Mesh(waterGeometry, waterMaterial);
-                water.rotation.x = -Math.PI / 2;
-                water.position.set(
-                    Math.random() * 80 - 40,
-                    -0.9,
-                    Math.random() * 200
-                );
-                scene.add(water);
-            }
-        }
-        
-        function createObstacles() {
-            // Rings to fly through
-            for (let i = 0; i < 15; i++) {
-                const ringGeometry = new THREE.TorusGeometry(2, 0.2, 16, 32);
-                const ringMaterial = new THREE.MeshPhongMaterial({
-                    color: new THREE.Color(
-                        Math.random(),
-                        Math.random(),
-                        Math.random()
-                    ),
-                    emissive: new THREE.Color(
-                        Math.random() * 0.5,
-                        Math.random() * 0.5,
-                        Math.random() * 0.5
-                    )
-                });
-                
-                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-                
-                // Position rings along a path
-                const z = i * 15 + 30;
-                const x = Math.sin(i * 0.5) * 10;
-                const y = Math.cos(i * 0.3) * 5 + 5;
-                
-                ring.position.set(x, y, z);
-                
-                // Random rotation
-                ring.rotation.x = Math.random() * Math.PI;
-                ring.rotation.y = Math.random() * Math.PI;
-                
-                ring.castShadow = true;
-                scene.add(ring);
-                
-                // Add collision detection
-                ring.userData.isObstacle = true;
-                ring.userData.damage = 20;
-                ring.userData.isRing = true;
-                obstacles.push(ring);
-            }
-            
-            // Transparent channels/tunnels
-            for (let i = 0; i < 3; i++) {
-                const tunnelGeometry = new THREE.CylinderGeometry(3, 3, 20, 16, 1, true);
-                const tunnelMaterial = new THREE.MeshPhongMaterial({
-                    color: new THREE.Color(
-                        Math.random(),
-                        Math.random(),
-                        Math.random()
-                    ),
-                    transparent: true,
-                    opacity: 0.3,
-                    side: THREE.DoubleSide
-                });
-                
-                const tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
-                
-                // Position tunnels
-                const z = (i + 1) * 50 + 10;
-                const x = Math.cos(i * 2) * 20;
-                const y = 5;
-                
-                tunnel.position.set(x, y, z);
-                tunnel.rotation.z = Math.PI / 2;
-                
-                scene.add(tunnel);
-                
-                // Add collision detection
-                tunnel.userData.isObstacle = true;
-                tunnel.userData.damage = 15;
-                tunnel.userData.isTunnel = true;
-                obstacles.push(tunnel);
-            }
-            
-            // Create finish line
-            const finishLineGeometry = new THREE.PlaneGeometry(30, 10);
-            const finishLineMaterial = new THREE.MeshPhongMaterial({
-                color: 0xFFFFFF,
-                side: THREE.DoubleSide
-            });
-            
-            const finishLine = new THREE.Mesh(finishLineGeometry, finishLineMaterial);
-            finishLine.position.set(0, 5, 250);
-            finishLine.rotation.y = Math.PI / 2;
-            
-            const checkPattern = new THREE.TextureLoader().load('');  // Using placeholder
-            finishLine.material.map = checkPattern;
-                
-            scene.add(finishLine);
-            
-            finishLine.userData.isFinishLine = true;
-            obstacles.push(finishLine);
-        }
-        
-        function startGame() {
-            document.getElementById('startScreen').style.display = 'none';
-            gameStarted = true;
-            startTime = Date.now();
-            updateAttempts();
-            updateHealth();
-        }
-        
-        function restartGame() {
-            // Reset game state
-            document.getElementById('gameOver').style.display = 'none';
-            gameOver = false;
-            
-            // Reset drone position
-            drone.position.set(0, 2, 0);
-            drone.rotation.set(0, 0, 0);
-            
-            // Reset health
-            health = 100;
-            updateHealth();
-            
-            // Reset timer
-            startTime = Date.now();
-            
-            // Start game
-            gameStarted = true;
-        }
-        
-        function updateAttempts() {
-            document.getElementById('attempts').textContent = attempts;
-        }
-        
-        function updateHealth() {
-            document.getElementById('health').style.width = health + '%';
-            
-            // Change color based on health
-            if (health > 60) {
-                document.getElementById('health').style.backgroundColor = '#2ecc71';
-            } else if (health > 30) {
-                document.getElementById('health').style.backgroundColor = '#f39c12';
-            } else {
-                document.getElementById('health').style.backgroundColor = '#e74c3c';
-            }
-        }
-        
-        function updateTimer() {
-            if (!gameStarted || gameOver) return;
-            
-            elapsedTime = (Date.now() - startTime) / 1000;
-            const minutes = Math.floor(elapsedTime / 60);
-            const seconds = Math.floor(elapsedTime % 60);
-            
-            document.getElementById('timer').textContent = 
-                (minutes < 10 ? '0' : '') + minutes + ':' + 
-                (seconds < 10 ? '0' : '') + seconds;
-        }
-        
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            drone.userData.camera.aspect = window.innerWidth / window.innerHeight;
-            drone.userData.camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        
-        function onKeyDown(event) {
-            if (!gameStarted || gameOver) return;
-            
-            switch(event.key.toLowerCase()) {
-                case 'w': keys.w = true; break;
-                case 'a': keys.a = true; break;
-                case 's': keys.s = true; break;
-                case 'd': keys.d = true; break;
-                case ' ': keys.space = true; break;
-                case 'shift': keys.shift = true; break;
-            }
-        }
-        
-        function onKeyUp(event) {
-            switch(event.key.toLowerCase()) {
-                case 'w': keys.w = false; break;
-                case 'a': keys.a = false; break;
-                case 's': keys.s = false; break;
-                case 'd': keys.d = false; break;
-                case ' ': keys.space = false; break;
-                case 'shift': keys.shift = false; break;
-            }
-        }
-        
-        function moveDrone() {
-            if (!gameStarted || gameOver) return;
-            
-            const delta = clock.getDelta();
-            
-            // Handle acceleration/deceleration
-            if (keys.w && speed < maxSpeed) {
-                targetSpeed = maxSpeed;
-            } else if (keys.s) {
-                targetSpeed = -maxSpeed / 2;
-            } else {
-                targetSpeed = 0;
-            }
-            
-            // Smooth acceleration/deceleration
-            if (speed < targetSpeed) {
-                speed = Math.min(speed + acceleration, targetSpeed);
-            } else if (speed > targetSpeed) {
-                speed = Math.max(speed - deceleration, targetSpeed);
-            }
-            
-            // Update speedometer
-            document.getElementById('speedometer').textContent = 'Speed: ' + Math.abs(Math.round(speed * 100));
-            
-            // Move drone forward/backward
-            drone.translateZ(speed);
-            
-            // Rotation
-            if (keys.a) {
-                drone.rotation.y += 0.05;
-            }
-            if (keys.d) {
-                drone.rotation.y -= 0.05;
-            }
-            
-            // Up/Down movement
-            if (keys.space) {
-                drone.position.y += 0.1;
-            }
-            if (keys.shift) {
-                drone.position.y -= 0.1;
-            }
-            
-            // Keep drone within bounds
-            if (drone.position.y < 0.5) {
-                drone.position.y = 0.5;
-            }
-            if (drone.position.y > 20) {
-                drone.position.y = 20;
-            }
-            
-            // Camera follows drone
-            const cameraOffset = new THREE.Vector3(0, 2, -5);
-            cameraOffset.applyQuaternion(drone.quaternion);
-            camera.position.copy(drone.position).add(cameraOffset);
-            camera.lookAt(drone.position);
-            
-            // Check for collisions
-            checkCollisions();
-        }
-        
-        function checkCollisions() {
-            if (!gameStarted || gameOver) return;
-            
-            // Get drone position
-            const dronePos = drone.position.clone();
-            const droneSize = 1;  // Approximate size for collision detection
-            
-            for (let i = 0; i < obstacles.length; i++) {
-                const obstacle = obstacles[i];
-                
-                // Check collision with finish line
-                if (obstacle.userData.isFinishLine) {
-                    const distance = dronePos.distanceTo(obstacle.position);
-                    if (distance < 3) {
-                        finishGame(true);
-                        return;
-                    }
-                    continue;
-                }
-                
-                // Skip non-obstacle objects
-                if (!obstacle.userData.isObstacle) continue;
-                
-                // Simple distance-based collision
-                const distance = dronePos.distanceTo(obstacle.position);
-                
-                // Different collision logic for different obstacle types
-                if (obstacle.userData.isRing) {
-                    // For rings, check if drone is passing through the center
-                    const ringPos = obstacle.position.clone();
-                    const ringRadius = 2;
-                    const distanceToRing = dronePos.distanceTo(ringPos);
-                    
-                    // If close to ring, check if inside ring radius
-                    if (distanceToRing < 2.5) {
-                        // Check if drone is near the ring's outer edge
-                        if (Math.abs(distanceToRing - ringRadius) > 1) {
-                            // Collision with ring
-                            takeDamage(obstacle.userData.damage);
-                            
-                            // Visual feedback
-                            obstacle.material.emissive = new THREE.Color(1, 0, 0);
-                            setTimeout(() => {
-                                obstacle.material.emissive = new THREE.Color(
-                                    Math.random() * 0.5,
-                                    Math.random() * 0.5,
-                                    Math.random() * 0.5
-                                );
-                            }, 200);
-                        }
-                    }
-                } else if (obstacle.userData.isTunnel) {
-                    // For tunnels, check if drone is hitting the walls
-                    const tunnelPos = obstacle.position.clone();
-                    const tunnelRadius = 3;
-                    const distanceToTunnel = Math.sqrt(
-                        Math.pow(dronePos.x - tunnelPos.x, 2) + 
-                        Math.pow(dronePos.y - tunnelPos.y, 2)
-                    );
-                    
-                    // Only check if drone is near the tunnel
-                    if (Math.abs(dronePos.z - tunnelPos.z) < 15) {
-                        // If distance to tunnel center is greater than tunnel radius
-                        if (distanceToTunnel > tunnelRadius - droneSize/2) {
-                            takeDamage(obstacle.userData.damage);
-                            
-                            // Visual feedback
-                            obstacle.material.color = new THREE.Color(1, 0, 0);
-                            setTimeout(() => {
-                                obstacle.material.color = new THREE.Color(
-                                    Math.random(),
-                                    Math.random(),
-                                    Math.random()
-                                );
-                            }, 200);
-                        }
-                    }
-                } else {
-                    // Basic collision for other obstacles
-                    const collisionThreshold = 1.5;
-                    if (distance < collisionThreshold) {
-                        takeDamage(obstacle.userData.damage);
-                    }
-                }
-            }
-        }
-        
-        function takeDamage(amount) {
-            health -= amount;
-            if (health < 0) health = 0;
-            updateHealth();
-            
-            // Add visual feedback
-            scene.background = new THREE.Color(0xFF0000);
-            setTimeout(() => {
-                scene.background = new THREE.Color(0x87CEEB);
-            }, 100);
-            
-            // Check if drone is destroyed
-            if (health <= 0) {
-                droneCrashed();
-            }
-        }
-        
-        function droneCrashed() {
-            attempts--;
-            updateAttempts();
-            
-            if (attempts <= 0) {
-                finishGame(false);
-            } else {
-                // Reset drone
-                drone.position.set(0, 2, 0);
-                drone.rotation.set(0, 0, 0);
-                health = 100;
-                updateHealth();
-            }
-        }
-        
-        function finishGame(victory) {
-            gameStarted = false;
-            gameOver = true;
-            
-            const gameOverDiv = document.getElementById('gameOver');
-            const message = document.getElementById('gameOverMessage');
-            
-            if (victory) {
-                message.textContent = `Congratulations! You completed the course in ${Math.floor(elapsedTime)} seconds.`;
-            } else {
-                message.textContent = `Game over! You ran out of attempts.`;
-            }
-            
-            gameOverDiv.style.display = 'block';
-        }
-        
-        function animateRotors() {
-            // Animate drone rotors
-            drone.children.forEach((child, index) => {
-                if (index > 0 && index <= 4) {  // Rotors are index 1-4
-                    child.rotation.y += 0.2 + (index * 0.05);
-                }
-            });
-        }
-        
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // Update timer
-            updateTimer();
-            
-            // Move drone based on controls
-            moveDrone();
-            
-            // Animate rotors
-            animateRotors();
-            
-            // Render scene
-            renderer.render(scene, camera);
-        }
-        
-        // Start the game
-        init();
-    </script>
+  <div style="position:relative;">
+    <canvas id="gameCanvas" width="820" height="500"></canvas>
+    <div id="level-badge">LVL <span id="levelNum">1</span></div>
+    <div id="overlay">
+      <div class="overlay-title start" id="overlayTitle">DRONE RUSH - RMsoft</div>
+      <div class="overlay-sub" id="overlaySub">
+        Designed by Prof. Rahul M. Samant | HOD-IT, NBNSTIC <br>
+	NAVIGATE THE DRONE THROUGH OBSTACLES<br>
+        COLLECT RINGS FOR BONUS POINTS<br>
+        5 LIVES · SPEED INCREASES OVER TIME
+      </div>
+      <div class="overlay-score hidden" id="finalScore"></div>
+      <button class="btn" id="startBtn">▶ LAUNCH</button>
+    </div>
+  </div>
+
+  <div id="controls-hint">
+    <div class="key-hint">MOVE: <span>↑ ↓ ← →</span> or <span>W A S D</span></div>
+    <div class="key-hint">PAUSE: <span>P / ESC</span></div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// ─── STATE ────────────────────────────────────────────────────────────────
+let state = 'start'; // start | playing | paused | gameover
+let score = 0, lives = 5, level = 1, frame = 0;
+let gameSpeed = 2.8;
+let particles = [], obstacles = [], rings = [], popups = [], stars = [];
+let invincible = false, invincTimer = 0;
+let shake = 0;
+const INVINCIBLE_FRAMES = 90;
+
+// ─── DRONE ────────────────────────────────────────────────────────────────
+const drone = { x: 130, y: H/2, w: 52, h: 22, vy: 0, vx: 0, throb: 0 };
+const keys = {};
+const ACCEL = 0.35, FRICTION = 0.85, MAX_SPD = 5.5;
+
+// ─── CITY SKYLINE (parallax layers) ──────────────────────────────────────
+function buildCity() {
+  const buildings = [];
+  let colors = ['#0a1a2e','#0d2238','#081525'];
+  let x = 0;
+  while (x < W + 200) {
+    const bw = 30 + Math.random() * 70;
+    const bh = 80 + Math.random() * 220;
+    const col = colors[Math.floor(Math.random() * colors.length)];
+    const windows = [];
+    for (let wy = bh - 20; wy > 10; wy -= 18) {
+      for (let wx = 8; wx < bw - 10; wx += 14) {
+        if (Math.random() > 0.4) windows.push({ wx, wy, lit: Math.random() > 0.3 });
+      }
+    }
+    buildings.push({ x, bw, bh, col, windows });
+    x += bw + 2;
+  }
+  return buildings;
+}
+const cityLayer1 = buildCity();
+const cityLayer2 = buildCity();
+let cityOffset1 = 0, cityOffset2 = 0;
+
+// ─── STARS ───────────────────────────────────────────────────────────────
+for (let i = 0; i < 120; i++) {
+  stars.push({ x: Math.random()*W, y: Math.random()*H*0.55,
+    r: Math.random()*1.2+0.3, alpha: Math.random()*0.6+0.2,
+    twinkle: Math.random()*0.05 });
+}
+
+// ─── OBSTACLE TEMPLATES ───────────────────────────────────────────────────
+const OBS_TYPES = ['bird','building','drone_enemy','antenna'];
+
+function spawnObstacle() {
+  const type = OBS_TYPES[Math.floor(Math.random() * OBS_TYPES.length)];
+  const h = 18 + Math.random() * 60;
+  const w = type === 'building' ? 30 + Math.random()*30 : 24 + Math.random()*20;
+  const y = 30 + Math.random() * (H - h - 60);
+  const speed = gameSpeed * (0.9 + Math.random() * 0.4);
+  obstacles.push({ type, x: W + 40, y, w, h, speed, frame: 0 });
+}
+
+function spawnRing() {
+  const y = 60 + Math.random() * (H - 120);
+  rings.push({ x: W + 30, y, r: 18, speed: gameSpeed * 0.8, pulse: 0,
+    color: Math.random() > 0.7 ? '#ffd700' : '#39ff14',
+    value: Math.random() > 0.7 ? 50 : 20 });
+}
+
+// ─── DRAW DRONE ───────────────────────────────────────────────────────────
+function drawDrone(x, y, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+
+  const tilt = drone.vy * 1.5;
+  ctx.rotate(tilt * Math.PI / 180);
+
+  // Rotor glow
+  const rotorPositions = [[-20,-8],[20,-8],[-20,8],[20,8]];
+  rotorPositions.forEach(([rx,ry]) => {
+    const rg = ctx.createRadialGradient(rx, ry, 0, rx, ry, 14);
+    rg.addColorStop(0, 'rgba(0,245,255,0.6)');
+    rg.addColorStop(1, 'transparent');
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(rx, ry, 14, 0, Math.PI*2); ctx.fill();
+  });
+
+  // Spinning rotors
+  const spinAngle = frame * 0.3;
+  rotorPositions.forEach(([rx,ry]) => {
+    ctx.save();
+    ctx.translate(rx, ry);
+    ctx.rotate(spinAngle);
+    ctx.strokeStyle = 'rgba(0,245,255,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-10, 0); ctx.lineTo(10, 0);
+    ctx.moveTo(0, -10); ctx.lineTo(0, 10);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // Arms
+  ctx.strokeStyle = '#00c8d4';
+  ctx.lineWidth = 2.5;
+  rotorPositions.forEach(([rx,ry]) => {
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(rx, ry); ctx.stroke();
+  });
+
+  // Body
+  const bodyGrad = ctx.createLinearGradient(-14, -7, 14, 7);
+  bodyGrad.addColorStop(0, '#1a4a5c');
+  bodyGrad.addColorStop(0.5, '#00c8d4');
+  bodyGrad.addColorStop(1, '#0a2a35');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.roundRect(-14, -7, 28, 14, 4);
+  ctx.fill();
+
+  // Body outline glow
+  ctx.strokeStyle = 'rgba(0,245,255,0.8)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // LED lights
+  ctx.fillStyle = invincible && Math.floor(frame/5)%2===0 ? '#ff073a' : '#00ff88';
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = '#00ff88';
+  ctx.beginPath(); ctx.arc(12, 0, 3, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Camera
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(0, 6, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#00f5ff';
+  ctx.beginPath(); ctx.arc(0, 6, 2, 0, Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+// ─── DRAW OBSTACLE ────────────────────────────────────────────────────────
+function drawObstacle(obs) {
+  ctx.save();
+  obs.frame = (obs.frame || 0) + 1;
+
+  if (obs.type === 'bird') {
+    // Glowing energy bird
+    ctx.fillStyle = '#bf5fff';
+    ctx.shadowBlur = 12; ctx.shadowColor = '#bf5fff';
+    const flap = Math.sin(obs.frame * 0.25) * 6;
+    ctx.beginPath();
+    ctx.moveTo(obs.x, obs.y + obs.h/2);
+    ctx.quadraticCurveTo(obs.x + obs.w*0.4, obs.y - flap, obs.x + obs.w, obs.y + obs.h/2);
+    ctx.quadraticCurveTo(obs.x + obs.w*0.4, obs.y + obs.h + flap, obs.x, obs.y + obs.h/2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+  } else if (obs.type === 'building') {
+    // Neon building block
+    const grad = ctx.createLinearGradient(obs.x, obs.y, obs.x + obs.w, obs.y);
+    grad.addColorStop(0, '#0d1f35'); grad.addColorStop(1, '#162840');
+    ctx.fillStyle = grad;
+    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+    ctx.strokeStyle = 'rgba(0,245,255,0.4)'; ctx.lineWidth = 1;
+    ctx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+    // Windows
+    for (let wy = obs.y + 8; wy < obs.y + obs.h - 10; wy += 16) {
+      for (let wx = obs.x + 6; wx < obs.x + obs.w - 8; wx += 14) {
+        ctx.fillStyle = Math.random() > 0.98 ? '#ff073a' :
+          (Math.sin(frame*0.05 + wx) > 0 ? '#00f5ff' : '#1a3a55');
+        ctx.fillRect(wx, wy, 7, 8);
+      }
+    }
+
+  } else if (obs.type === 'drone_enemy') {
+    // Enemy drone (red)
+    ctx.save();
+    ctx.translate(obs.x + obs.w/2, obs.y + obs.h/2);
+    const rotorPos = [[-14,-5],[14,-5],[-14,5],[14,5]];
+    rotorPos.forEach(([rx,ry]) => {
+      ctx.save(); ctx.translate(rx,ry); ctx.rotate(obs.frame * -0.25);
+      ctx.strokeStyle = 'rgba(255,7,58,0.9)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-7,0); ctx.lineTo(7,0);
+      ctx.moveTo(0,-7); ctx.lineTo(0,7); ctx.stroke();
+      ctx.restore();
+    });
+    ctx.fillStyle = '#3d0010'; ctx.strokeStyle = '#ff073a'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(-10,-5,20,10,3); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 12; ctx.shadowColor = '#ff073a';
+    ctx.fillStyle = '#ff073a'; ctx.beginPath(); ctx.arc(8,0,2.5,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+  } else if (obs.type === 'antenna') {
+    // Antenna tower
+    const cx = obs.x + obs.w/2;
+    ctx.strokeStyle = '#2a5a7a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx, obs.y + obs.h); ctx.lineTo(cx, obs.y); ctx.stroke();
+    ctx.strokeStyle = '#1a4a6a'; ctx.lineWidth = 1;
+    for (let yy = obs.y; yy < obs.y + obs.h; yy += 20) {
+      ctx.beginPath(); ctx.moveTo(cx-12*(1-(yy-obs.y)/obs.h), yy);
+      ctx.lineTo(cx+12*(1-(yy-obs.y)/obs.h), yy); ctx.stroke();
+    }
+    const pulse = Math.sin(obs.frame * 0.08) > 0;
+    ctx.fillStyle = pulse ? '#ff073a' : 'rgba(255,7,58,0.3)';
+    ctx.shadowBlur = pulse ? 15 : 5; ctx.shadowColor = '#ff073a';
+    ctx.beginPath(); ctx.arc(cx, obs.y, 5, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+}
+
+// ─── DRAW RING ────────────────────────────────────────────────────────────
+function drawRing(ring) {
+  ring.pulse = (ring.pulse || 0) + 0.08;
+  const glow = 0.6 + Math.sin(ring.pulse) * 0.4;
+  ctx.save();
+  ctx.shadowBlur = 20 * glow; ctx.shadowColor = ring.color;
+  ctx.strokeStyle = ring.color; ctx.lineWidth = 3;
+  ctx.globalAlpha = glow;
+  ctx.beginPath(); ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI*2); ctx.stroke();
+  // Inner star
+  ctx.globalAlpha = glow * 0.6;
+  ctx.fillStyle = ring.color;
+  ctx.beginPath(); ctx.arc(ring.x, ring.y, 4, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0; ctx.restore();
+}
+
+// ─── PARTICLES ────────────────────────────────────────────────────────────
+function spawnParticles(x, y, color, count = 12) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const speed = 1.5 + Math.random() * 4;
+    particles.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+      life: 1, decay: 0.025 + Math.random()*0.03, r: 2+Math.random()*3, color });
+  }
+}
+
+// ─── THRUSTER TRAIL ───────────────────────────────────────────────────────
+function spawnTrail() {
+  if (frame % 2 === 0) {
+    particles.push({ x: drone.x - 30, y: drone.y + (Math.random()-0.5)*8,
+      vx: -1.5 - Math.random()*2, vy: (Math.random()-0.5)*0.8,
+      life: 1, decay: 0.06, r: 2+Math.random()*2,
+      color: `hsl(${180 + Math.random()*40}, 100%, 60%)`, trail: true });
+  }
+}
+
+// ─── POPUP SCORE ──────────────────────────────────────────────────────────
+function addPopup(x, y, text, color) {
+  popups.push({ x, y, text, color, life: 1, vy: -1.5 });
+}
+
+// ─── CITY DRAW ────────────────────────────────────────────────────────────
+function drawCity(layer, offset, alpha) {
+  ctx.save(); ctx.globalAlpha = alpha;
+  layer.forEach(b => {
+    let bx = (b.x - offset) % (W + 200);
+    if (bx < -b.bw) bx += W + 200;
+    ctx.fillStyle = b.col;
+    ctx.fillRect(bx, H - b.bh, b.bw, b.bh);
+    // Windows
+    b.windows.forEach(win => {
+      ctx.fillStyle = win.lit ? `rgba(0,245,255,0.3)` : 'rgba(0,0,0,0.5)';
+      ctx.fillRect(bx + win.wx, H - b.bh + win.wy, 6, 7);
+    });
+  });
+  ctx.restore();
+}
+
+// ─── COLLISION ────────────────────────────────────────────────────────────
+function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh, margin = 8) {
+  return ax + margin < bx + bw - margin &&
+         ax + aw - margin > bx + margin &&
+         ay + margin < by + bh - margin &&
+         ay + ah - margin > by + margin;
+}
+function circleRect(cx, cy, cr, rx, ry, rw, rh) {
+  const nearX = Math.max(rx, Math.min(cx, rx + rw));
+  const nearY = Math.max(ry, Math.min(cy, ry + rh));
+  const dx = cx - nearX, dy = cy - nearY;
+  return dx*dx + dy*dy < cr*cr;
+}
+
+// ─── UPDATE LIVES UI ──────────────────────────────────────────────────────
+function updateLivesUI() {
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById('h'+i).className = 'heart' + (i > lives ? ' lost' : '');
+  }
+}
+
+// ─── GAME LOOP ────────────────────────────────────────────────────────────
+let lastObstacle = 0, lastRing = 0;
+
+function update() {
+  if (state !== 'playing') return;
+  frame++;
+
+  // Speed & level
+  gameSpeed = 2.8 + score * 0.0008;
+  const newLevel = Math.floor(score / 500) + 1;
+  if (newLevel !== level) {
+    level = newLevel;
+    document.getElementById('levelNum').textContent = level;
+    addPopup(W/2, H/2, `LEVEL ${level}!`, '#bf5fff');
+    spawnParticles(W/2, H/2, '#bf5fff', 20);
+  }
+
+  // Drone controls
+  if (keys['ArrowUp']   || keys['w'] || keys['W']) drone.vy -= ACCEL;
+  if (keys['ArrowDown'] || keys['s'] || keys['S']) drone.vy += ACCEL;
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) drone.vx -= ACCEL * 0.7;
+  if (keys['ArrowRight']|| keys['d'] || keys['D']) drone.vx += ACCEL * 0.7;
+
+  drone.vy *= FRICTION; drone.vx *= FRICTION;
+  drone.vy = Math.max(-MAX_SPD, Math.min(MAX_SPD, drone.vy));
+  drone.vx = Math.max(-MAX_SPD*0.7, Math.min(MAX_SPD*0.7, drone.vx));
+
+  // Gravity
+  drone.vy += 0.12;
+
+  drone.y += drone.vy; drone.x += drone.vx;
+  drone.y = Math.max(20, Math.min(H - 30, drone.y));
+  drone.x = Math.max(30, Math.min(W - 60, drone.x));
+
+  // Thruster trail
+  spawnTrail();
+
+  // Score tick
+  if (frame % 6 === 0) {
+    score += 1;
+    document.getElementById('score').textContent = String(score).padStart(6, '0');
+  }
+
+  // Spawn obstacles
+  const obsInterval = Math.max(45, 120 - score * 0.05);
+  if (frame - lastObstacle > obsInterval) {
+    spawnObstacle(); lastObstacle = frame;
+  }
+
+  // Spawn rings
+  const ringInterval = Math.max(80, 180 - score * 0.03);
+  if (frame - lastRing > ringInterval) {
+    spawnRing(); lastRing = frame;
+  }
+
+  // Move obstacles
+  obstacles.forEach(o => o.x -= o.speed);
+  obstacles = obstacles.filter(o => o.x > -100);
+
+  // Move rings
+  rings.forEach(r => r.x -= r.speed);
+  rings = rings.filter(r => r.x > -50);
+
+  // Invincibility
+  if (invincible) {
+    invincTimer--;
+    if (invincTimer <= 0) invincible = false;
+  }
+
+  // Collision with obstacles
+  if (!invincible) {
+    for (const obs of obstacles) {
+      if (rectsOverlap(drone.x - 20, drone.y - 10, 40, 20, obs.x, obs.y, obs.w, obs.h)) {
+        lives--;
+        updateLivesUI();
+        spawnParticles(drone.x, drone.y, '#ff073a', 18);
+        shake = 15;
+        invincible = true; invincTimer = INVINCIBLE_FRAMES;
+        addPopup(drone.x, drone.y - 40, '-1 LIFE', '#ff073a');
+        if (lives <= 0) { gameOver(); return; }
+        break;
+      }
+    }
+  }
+
+  // Collect rings
+  rings = rings.filter(ring => {
+    if (Math.hypot(drone.x - ring.x, drone.y - ring.y) < ring.r + 14) {
+      score += ring.value;
+      spawnParticles(ring.x, ring.y, ring.color, 10);
+      addPopup(ring.x, ring.y, `+${ring.value}`, ring.color);
+      document.getElementById('score').textContent = String(score).padStart(6, '0');
+      return false;
+    }
+    return true;
+  });
+
+  // Particles
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if (!p.trail) p.vy += 0.1;
+    p.life -= p.decay;
+  });
+  particles = particles.filter(p => p.life > 0);
+
+  // Popups
+  popups.forEach(p => { p.y += p.vy; p.life -= 0.018; });
+  popups = popups.filter(p => p.life > 0);
+
+  // City scroll
+  cityOffset1 += gameSpeed * 0.4;
+  cityOffset2 += gameSpeed * 0.2;
+
+  // Shake decay
+  if (shake > 0) shake -= 1.5;
+
+  // Stars twinkle
+  stars.forEach(s => { s.alpha += (Math.random()-0.5)*s.twinkle; s.alpha = Math.max(0.1, Math.min(0.9, s.alpha)); });
+}
+
+// ─── DRAW ─────────────────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Screen shake
+  ctx.save();
+  if (shake > 0) {
+    ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
+  }
+
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0, '#010a1a');
+  skyGrad.addColorStop(0.6, '#020d22');
+  skyGrad.addColorStop(1, '#051525');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  stars.forEach(s => {
+    ctx.globalAlpha = s.alpha;
+    ctx.fillStyle = '#c0e8ff';
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // City layers
+  drawCity(cityLayer2, cityOffset2, 0.25);
+  drawCity(cityLayer1, cityOffset1, 0.45);
+
+  // Ground line
+  const groundGrad = ctx.createLinearGradient(0, H-8, 0, H);
+  groundGrad.addColorStop(0, 'rgba(0,245,255,0.3)');
+  groundGrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = groundGrad;
+  ctx.fillRect(0, H-8, W, 8);
+
+  // Rings
+  rings.forEach(drawRing);
+
+  // Obstacles
+  obstacles.forEach(drawObstacle);
+
+  // Particles
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.shadowBlur = p.trail ? 6 : 10;
+    ctx.shadowColor = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+
+  // Drone (flicker when invincible)
+  const showDrone = !invincible || Math.floor(frame/4) % 2 === 0;
+  if (showDrone) drawDrone(drone.x, drone.y);
+
+  // Popups
+  popups.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.font = 'bold 16px Orbitron, monospace';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 10; ctx.shadowColor = p.color;
+    ctx.fillText(p.text, p.x, p.y);
+    ctx.restore();
+  });
+
+  // Pause overlay on canvas
+  if (state === 'paused') {
+    ctx.fillStyle = 'rgba(2,8,20,0.7)';
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = '#00f5ff';
+    ctx.font = 'bold 40px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 30; ctx.shadowColor = '#00f5ff';
+    ctx.fillText('PAUSED', W/2, H/2);
+    ctx.font = '13px Share Tech Mono';
+    ctx.fillStyle = 'rgba(0,245,255,0.5)';
+    ctx.shadowBlur = 0;
+    ctx.fillText('PRESS P TO RESUME', W/2, H/2 + 40);
+  }
+
+  ctx.restore();
+}
+
+// ─── GAME OVER ────────────────────────────────────────────────────────────
+function gameOver() {
+  state = 'gameover';
+  document.getElementById('overlayTitle').textContent = 'GAME OVER';
+  document.getElementById('overlayTitle').className = 'overlay-title gameover';
+  document.getElementById('overlaySub').innerHTML =
+    `FINAL LEVEL: ${level}<br>OBSTACLES DODGED · RINGS COLLECTED`;
+  const fs = document.getElementById('finalScore');
+  fs.textContent = `SCORE: ${String(score).padStart(6,'0')}`;
+  fs.classList.remove('hidden');
+  document.getElementById('startBtn').textContent = '↺ RETRY';
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+// ─── START / RESET ────────────────────────────────────────────────────────
+function startGame() {
+  score = 0; lives = 5; level = 1; frame = 0; gameSpeed = 2.8;
+  particles = []; obstacles = []; rings = []; popups = [];
+  invincible = false; invincTimer = 0; shake = 0;
+  lastObstacle = 0; lastRing = 0; cityOffset1 = 0; cityOffset2 = 0;
+  drone.x = 130; drone.y = H/2; drone.vy = 0; drone.vx = 0;
+  document.getElementById('score').textContent = '000000';
+  document.getElementById('levelNum').textContent = '1';
+  updateLivesUI();
+  document.getElementById('finalScore').classList.add('hidden');
+  document.getElementById('overlay').classList.add('hidden');
+  state = 'playing';
+}
+
+// ─── INPUT ────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && state === 'playing') {
+    state = 'paused';
+  } else if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && state === 'paused') {
+    state = 'playing';
+  }
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+
+// ─── LOOP ─────────────────────────────────────────────────────────────────
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
 </body>
 </html>
